@@ -1,10 +1,12 @@
 from ast import Del
+from contextlib import contextmanager
 from datetime import date, datetime
 from decimal import Decimal
 from functools import partial
 from http import HTTPStatus
 from lib2to3.pytree import Base
 from pathlib import Path
+import re
 from typing import Callable, List, Optional
 import uuid
 from tinydb import JSONStorage, TinyDB, Query
@@ -15,6 +17,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from tinydb_serialization import SerializationMiddleware, Serializer
 from tinydb_serialization.serializers import DateTimeSerializer
+from . import model
+from sqlalchemy.orm import joinedload
 
 ROOT_DIR = Path(__file__).parent
 
@@ -111,34 +115,16 @@ class DecimalSerializer(Serializer):
 serialization.register_serializer(DecimalSerializer(), 'TinyDecimal')
 
 
+@contextmanager
+def get_db():
+    db = model.SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-class Database:
-    def __init__(self, db):
-        self._db = db
-        self.Projects = Query()
-    
-    def get_project(self, id) -> Optional[Project]:
-        project = self._db.get(self.Projects.id == id)
-        if project:
-            return Project(**project)
-
-    def insert(self, entity: Entity):
-        return self._db.insert(entity.dict())
-
-    def all_projects(self):
-        return self._db.all()
-    
-    def update_project(self, project: Project):
-        return self._db.update(project.dict())
-
-    @staticmethod
-    def _serialize(entity: Entity):
-        data = entity.dict()
-
-
-
-_db = TinyDB("./deliverables.tinydb", storage=serialization)
-db = Database(_db)
+def get_project(id, db):
+    return db.query(model.Project).filter_by(id=id).options(joinedload(model.Project.deliverables), joinedload(model.Project.invoices)).first()
 
 
 @server.get("/projects", name="new_project")
@@ -149,25 +135,29 @@ def new_project(render: Render = Depends(Templates)):
 
 @server.post("/projects", name="create_project")
 def create_project(request: Request, name: str = Form()):
-    project = Project(name=name)
-    db.insert(project)
+    project = model.Project(name=name)
+    with get_db() as db:
+        db.add(project)
+        db.commit()
     return RedirectResponse(request.url_for("index"), status_code=HTTPStatus.SEE_OTHER)
 
 
 @server.get("/projects/{id}", name="project_detail")
 def project_detail(request: Request, id: str, render: Render = Depends(Templates)):
     print("GET project", id)
-    project = db.get_project(id)
-    context = {"project": project}
-    return render("project_detail.html.jinja2", context=context)
+    with get_db() as db:
+        project = get_project(id, db)
+        context = {"project": project}
+        return render("project_detail.html.jinja2", context=context)
 
 
 @server.post("/projects/{id}/delete", name="project_delete")
 def project_delete(request: Request, id: str):
-    project = db.get_project(id)
-    if project:
-        db.remove(Query().id == id)
-    return RedirectResponse(request.url_for("index"), status_code=HTTPStatus.SEE_OTHER)
+    with get_db() as db:
+        project = get_project(id, db)
+        db.delete(project)
+        db.commit()
+        return RedirectResponse(request.url_for("index"), status_code=HTTPStatus.SEE_OTHER)
 
 
 @server.post("/project/{project_id}/deliverable", name="create_deliverable")
@@ -175,16 +165,17 @@ def create_deliverable(
     project_id: str, request: Request, 
     name: str = Form(), estimate: Decimal = Form(), due_date: Optional[date] = Form(default=None)
     ):
-    project = db.get_project(project_id)
-    if not project:
-        raise ValueError
-    deliverable = Deliverable(
-        project_id=project.id, name=name, estimate=estimate, due_date=due_date,
-        created=datetime.utcnow(),
+    with get_db() as db:
+        project = get_project(project_id, db)
+        if not project:
+            raise ValueError
+        deliverable = model.Deliverable(
+            project_id=project.id, name=name, estimate=estimate, due_date=due_date,
+            created=datetime.utcnow(),
         )
-    project.deliverables.append(deliverable)
-    db.update_project(project)
-    return RedirectResponse(request.url_for("project_detail", id=project.id), status_code=HTTPStatus.SEE_OTHER)
+        project.deliverables.append(deliverable)
+        db.commit()
+        return RedirectResponse(request.url_for("project_detail", id=project.id), status_code=HTTPStatus.SEE_OTHER)
 
 
 
@@ -192,19 +183,92 @@ def create_deliverable(
 def delete_deliverable(
     project_id: str, deliverable_id: str, request: Request, 
     ):
-    project: Project = db.get_project(project_id)
-    if not project:
-        raise ValueError
-    deliverable = project.get_deliverable(deliverable_id)
-    if not deliverable:
-        raise ValueError
-    project.deliverables.remove(deliverable)
-    db.update_project(project)
-    return RedirectResponse(request.url_for("project_detail", id=project.id), status_code=HTTPStatus.SEE_OTHER)
+    with get_db() as db:
+        project: model.Project = get_project(project_id, db)
+        if not project:
+            raise ValueError
+        deliverable = project.get_deliverable(deliverable_id)
+        if not deliverable:
+            raise ValueError("No deliverable")
+        project.deliverables.remove(deliverable)
+        db.delete(deliverable)
+        db.commit()
+        return RedirectResponse(request.url_for("project_detail", id=project.id), status_code=HTTPStatus.SEE_OTHER)
 
+@server.post("/project/{project_id}/invoice", name="create_invoice")
+def create_invoice(
+    project_id: str, request: Request, name: str = Form()
+    ):
+    with get_db() as db:
+        project: Project = get_project(project_id, db)
+        if not project:
+            raise ValueError
+        invoice = model.Invoice(project=project, name=name)
+        db.add(invoice)
+        db.commit()
+        return RedirectResponse(request.url_for("project_detail", id=project.id), status_code=HTTPStatus.SEE_OTHER)
+        
+
+@server.get("/project/{project_id}/invoice/{invoice_id}", name="invoice_detail")
+def invoice_detail(
+    project_id: str, invoice_id: str, request: Request
+    ):
+    with get_db() as db:
+        project: Project = get_project(project_id, db)
+        if not project:
+            raise ValueError
+        invoice = get_invoice(invoice_id, db)
+        return RedirectResponse(request.url_for("invoice_detail", id=project.id), status_code=HTTPStatus.SEE_OTHER)
+
+def get_invoice(invoice_id, db):
+    return db.query(model.Invoice).get(invoice_id)
+
+@server.post("/project/{project_id}/invoice/{invoice_id}/line_items", name="add_line_item")
+def create_invoice(
+    project_id: str, invoice_id: str, request: Request, deliverable_id: str = Form()
+    ):
+    with get_db() as db:
+        project: Project = get_project(project_id, db)
+        if not project:
+            raise ValueError
+        invoice: model.Invoice = get_invoice(invoice_id, db)
+        deliverable = project.get_deliverable(deliverable_id)
+        invoice.line_items.append(model.InvoiceLineItem(deliverable=deliverable, amount=deliverable.estimate))
+        db.commit()
+        return RedirectResponse(request.url_for("project_detail", id=project.id), status_code=HTTPStatus.SEE_OTHER)
+        
+@server.post("/project/{project_id}/invoice/{invoice_id}/credit", name="add_credit")
+def add_credit(
+    project_id: str, invoice_id: str, request: Request, reason: str = Form(), amount: Decimal = Form()
+    ):
+    with get_db() as db:
+        project: Project = get_project(project_id, db)
+        if not project:
+            raise ValueError
+        invoice: model.Invoice = get_invoice(invoice_id, db)
+        credit = model.InvoiceCredit(reason=reason, amount=amount)
+        invoice.credits.append(credit)
+        db.commit()
+        return RedirectResponse(request.url_for("project_detail", id=project.id), status_code=HTTPStatus.SEE_OTHER)
+
+@server.post("/project/{project_id}/invoice/{invoice_id}/reimbursement", name="add_reimbursement")
+def add_reimbursement(
+    project_id: str, invoice_id: str, request: Request, reason: str = Form(), amount: Decimal = Form()
+    ):
+    with get_db() as db:
+        project: Project = get_project(project_id, db)
+        if not project:
+            raise ValueError
+        invoice: model.Invoice = get_invoice(invoice_id, db)
+        reimbursement = model.InvoiceReimbursement(reason=reason, amount=amount)
+        invoice.reimbursements.append(reimbursement)
+        db.commit()
+        return RedirectResponse(request.url_for("project_detail", id=project.id), status_code=HTTPStatus.SEE_OTHER)
 
 @server.get("/", name="index")
 def index(request: Request, render: Render = Depends(Templates)):
-    projects = db.all_projects()
-    context = {"request": request, "projects": projects}
-    return render("index.html.jinja2", context=context)
+    with get_db() as db:
+        projects = db.query(model.Project).all()
+        print(projects)
+        context = {"request": request, "projects": projects}
+        return render("index.html.jinja2", context=context)

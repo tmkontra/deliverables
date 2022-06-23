@@ -33,7 +33,7 @@
                 </td>
                 <td>
                     <form action="{{ url_for('delete_deliverable', project_id=project.id, deliverable_id=deliverable.id) }}" method="POST">
-                        <button type="submit" class="button danger">Delete</button>
+                        <button type="submit" class="btn btn-danger">Delete</button>
                     </form>
                 </td>
             </tr>
@@ -41,20 +41,20 @@
             <tr>
                 <form action="{{ url_for('create_deliverable', project_id=project.id) }}" method="POST">
                 <td>
-                    <input type="text" name="name" placeholder="Name"/>
+                    <input type="text" class="form-control" name="name" placeholder="Name"/>
                 </td>
                 <td>
-                    <input type="number" step="0.01" name="estimate" placeholder="Estimate (USD)"/>        
+                    <input type="number" step="0.01" class="form-control" name="estimate" placeholder="Estimate (USD)"/>        
                 </td>
                 <td>
-                    <input type="date" name="due_date" placeholder=""/>    
+                    <input type="date" class="form-control" name="due_date" placeholder=""/>    
                 </td>
                 <td>
                 </td>
                 <td>
                 </td>
                 <td>
-                    <button class="button primary" type="submit">Add Deliverable</button>
+                    <button class="btn btn-primary" type="submit">Add Deliverable</button>
                 </td>
                 </form>
             </tr>
@@ -62,19 +62,100 @@
     </div>
     <div>
         <h3>Invoices</h3>
-        <table>
+        <table class="table table-borderless">
         {% for invoice in project.invoices %}
             <tr>
                 <td>
-                    <a href="{{ url_for('project_detail', id=project.id) }}">{{ project.name }}</a>
+                    <strong>{{ invoice.name }}</strong>
                 </td>
                 <td>
-                    <form action="{{ url_for('project_delete', id=project.id) }}" method="POST">
+                    {# <form action="{{ url_for('project_delete', id=project.id) }}" method="POST">
                         <button class="button danger" type="submit">Delete</button>
-                    </form>
+                    </form> #}
                 </td>
+            </tr>
+            <tr>
+                <td>Line Items</td>
+            </tr>
+            {% for line_item in invoice.line_items %}
+            <tr>
+                <td></td>
+                <td>{{ line_item.deliverable.name }}</td>
+                <td>{{ line_item.amount }}</td>
+            </tr>
+            {% endfor %}
+            <tr>
+                <td></td>
+                <form action="{{ url_for('add_line_item', project_id=project.id, invoice_id=invoice.id) }}" method="POST">
+                <td>
+                    <select name="deliverable_id" class="form-select">
+                        {% for deliverable in project.deliverables %}
+                        <option value="{{deliverable.id}}">{{deliverable.name}}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td>
+                    <button class="btn btn-primary" type="submit">Add Line Item</button>
+                </td>
+                </form>
+            </tr>
+            <tr>
+                <td>Credits</td>
+            </tr>
+            {% for credit in invoice.credits %}
+            <tr>
+                <td></td>
+                <td>{{ credit.reason }}</td>
+                <td>{{ credit.amount }}</td>
+            </tr>
+            {% endfor %}
+            <tr>
+                <td></td>
+                <form action="{{ url_for('add_credit', project_id=project.id, invoice_id=invoice.id) }}" method="POST">
+                <td>
+                   <input type="text" class="form-control" name="reason" placeholder="Reason" required/>
+                </td>
+                <td>
+                   <input type="number" step="0.01" class="form-control" name="amount" placeholder="Amount" required/>
+                </td>
+                <td>
+                    <button class="btn btn-primary" type="submit">Add Credit</button>
+                </td>
+                </form>
+            </tr>
+            <tr>
+                <td>Reimbursements</td>
+            </tr>
+            {% for reimbursement in invoice.reimbursements %}
+            <tr>
+                <td></td>
+                <td>{{ reimbursement.reason }}</td>
+                <td>{{ reimbursement.amount }}</td>
+            </tr>
+            {% endfor %}
+            <tr>
+                <td></td>
+                <form action="{{ url_for('add_reimbursement', project_id=project.id, invoice_id=invoice.id) }}" method="POST">
+                <td>
+                   <input type="text" class="form-control" name="reason" placeholder="Reason" required/>
+                </td>
+                <td>
+                   <input type="number" step="0.01" class="form-control" name="amount" placeholder="Amount" required/>
+                </td>
+                <td>
+                    <button class="btn btn-primary" type="submit">Add Reimbursement</button>
+                </td>
+                </form>
             </tr>
         {% endfor %}
         </table>
+         <form action="{{ url_for('create_invoice', project_id=project.id) }}" method="POST">
+            <td>
+                <input type="text" class="form-control" name="name" placeholder="Invoice Name"/>
+            </td>
+            <td>
+                <button class="btn btn-primary" type="submit">Create Invoice</button>
+            </td>
+        </form>
     </div>
 {% endblock %}

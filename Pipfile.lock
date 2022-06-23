@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "fd43bcfb294270fa7df3591ddc03023c6c87b7937875c99a4edd8dcf4d2d9a29"
+            "sha256": "d83ea94835aaf10b1c4b40b841b6366cbfbe3c8a7d9da6cc125848d6d5cc1ed9"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -16,6 +16,14 @@
         ]
     },
     "default": {
+        "alembic": {
+            "hashes": [
+                "sha256:a2d4d90da70b30e70352cd9455e35873a255a31402a438fe24815758d7a0e5e1",
+                "sha256:b5ae4bbfc7d1302ed413989d39474d102e7cfa158f6d5969d2497955ffe85a30"
+            ],
+            "index": "pypi",
+            "version": "==1.8.0"
+        },
         "anyio": {
             "hashes": [
                 "sha256:413adf95f93886e442aea925f3ee43baa5a765a64a0f52c6081894f9992fdd0b",
@@ -132,6 +140,14 @@
             ],
             "index": "pypi",
             "version": "==3.1.2"
+        },
+        "mako": {
+            "hashes": [
+                "sha256:23aab11fdbbb0f1051b93793a58323ff937e98e34aece1c4219675122e57e4ba",
+                "sha256:9a7c7e922b87db3686210cf49d5d767033a41d4010b284e747682c92bddd8b39"
+            ],
+            "markers": "python_version >= '3.7'",
+            "version": "==1.2.0"
         },
         "markupsafe": {
             "hashes": [

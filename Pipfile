@@ -13,6 +13,7 @@ sqlmodel = "*"
 sqlalchemy = "*"
 python-multipart = "*"
 tinydb-serialization = "*"
+alembic = "*"
 
 [dev-packages]
 
