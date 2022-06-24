@@ -5,6 +5,7 @@ from decimal import Decimal
 from functools import partial
 from http import HTTPStatus
 from lib2to3.pytree import Base
+from operator import inv
 from pathlib import Path
 import re
 from typing import Callable, List, Optional
@@ -29,10 +30,16 @@ server.mount("/static", StaticFiles(directory=ROOT_DIR / "static"), name="static
 Render = Callable[[str, dict], Response]
 
 
+def render_currency(input):
+    """$1,352.02"""
+    return f"${input:,.2f}"
+
+
 class RenderTemplate:
     def __init__(self, **globals):
         self._templates = Jinja2Templates(directory=ROOT_DIR / "templates")
         self._set_globals(self._templates, globals)
+        self._templates.env.globals["currency"] = render_currency
 
     @staticmethod
     def _set_globals(template_cls, globals: dict):
@@ -272,3 +279,21 @@ def index(request: Request, render: Render = Depends(Templates)):
         print(projects)
         context = {"request": request, "projects": projects}
         return render("index.html.jinja2", context=context)
+
+@server.get("/project/{project_id}/invoice/{invoice_id}/render", name="render_invoice")
+def render_invoice(request: Request, project_id: str, invoice_id: str, render: Render = Depends(Templates)):
+     with get_db() as db:
+        project: Project = get_project(project_id, db)
+        if not project:
+            raise ValueError
+        invoice: model.Invoice = get_invoice(invoice_id, db)
+        context = {
+            "date": date.today().strftime("%b %d, %Y"),
+            "deliverables": invoice.line_items,
+            "reimbursements": invoice.reimbursements,
+            "credits": invoice.credits,
+            "gross_pay": invoice.gross_pay,
+            "reimbursements_total": invoice.reimbursements_total,
+            "net_pay": invoice.net_pay,
+        }
+        return render("invoice.html.jinja2", context=context)

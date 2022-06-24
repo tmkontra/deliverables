@@ -1,4 +1,9 @@
 from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal
+import itertools
+from operator import neg
+from turtle import pos
+from unicodedata import decimal
 from sqlalchemy import DATE, DATETIME, DECIMAL, DateTime, MetaData, UniqueConstraint, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relation
@@ -33,8 +38,14 @@ class Deliverable(Base):
 
     project = relationship("Project")
 
+class BaseValueModel:
+    _value: Decimal
 
-class InvoiceLineItem(Base):
+    @property
+    def value(self):
+        return Decimal(self._value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+class InvoiceLineItem(BaseValueModel, Base):
     __tablename__ = "invoice_line_item"
     __table_args__ = ()
 
@@ -45,8 +56,12 @@ class InvoiceLineItem(Base):
     invoice = relationship("Invoice")
     deliverable = relationship("Deliverable")
 
+    @property
+    def _value(self):
+        return self.amount
 
-class InvoiceReimbursement(Base):
+
+class InvoiceReimbursement(BaseValueModel, Base):
     __tablename__ = "invoice_reimbursement"
 
     invoice_id = Column(Integer, ForeignKey("invoice.id"), nullable=False)
@@ -55,8 +70,12 @@ class InvoiceReimbursement(Base):
 
     invoice = relationship("Invoice")
 
+    @property
+    def _value(self):
+        return self.amount
 
-class InvoiceCredit(Base):
+
+class InvoiceCredit(BaseValueModel, Base):
     __tablename__ = "invoice_credit"
 
     invoice_id = Column(Integer, ForeignKey("invoice.id"), nullable=False)
@@ -64,6 +83,10 @@ class InvoiceCredit(Base):
     amount = Column(DECIMAL, nullable=False)
 
     invoice = relationship("Invoice")
+
+    @property
+    def _value(self):
+        return neg(self.amount)
 
 
 class Invoice(Base):
@@ -77,6 +100,28 @@ class Invoice(Base):
     reimbursements = relationship("InvoiceReimbursement", back_populates="invoice")
     
     project = relationship("Project")
+
+    @property
+    def gross_pay(self):
+        values = (
+            i.value for i in itertools.chain(self.line_items, self.credits, self.reimbursements)
+        )
+        return sum((value for value in values if value > 0))
+    
+    @property
+    def reimbursements_total(self):
+        values = (
+            i.value for i in itertools.chain(self.reimbursements)
+        )
+        return sum(values)
+        
+    @property
+    def net_pay(self):
+        values = (
+            i.value for i in itertools.chain(self.line_items, self.credits, self.reimbursements)
+        )
+        return sum(values)
+        
 
 
 class Project(Base):

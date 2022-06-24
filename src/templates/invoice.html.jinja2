@@ -1,0 +1,71 @@
+{% extends "_base.html.jinja2" %}
+{% block body %}
+    <div>
+        <h1>INVOICE</h2>
+        <p>{{ date }}
+    </div>
+    <div class="d-flex flex-column align-items-center">
+        <table class="w-50 table table-bordered">
+        <tbody>
+            <tr>
+                <td class="h6"><strong>Deliverables</strong></td>
+                <td class="h6"><strong>Amount</strong></td>
+            </tr>
+            {% for line_item in deliverables %}
+                <tr>
+                    <td>
+                        {{ line_item.deliverable.name }}
+                    </td>
+                    <td>
+                        {{ currency(line_item.value) }}
+                    </td>
+                </tr>
+            {% endfor %}
+            <tr>
+                <td class="h6"><strong>Reimbursements</strong></td>
+                <td></td>
+            </tr>
+            {% for reimbursement in reimbursements %}
+                <tr>
+                    <td>
+                        {{ reimbursement.reason }}
+                    </td>
+                    <td>
+                        {{ currency(reimbursement.value) }}
+                    </td>
+                </tr>
+            {% endfor %}
+            <tr>
+                <td class="h6"><strong>Credits</strong></td>
+                <td></td>
+            </tr>
+            {% for credit in credits %}
+                <tr>
+                    <td>
+                        {{ credit.reason }}
+                    </td>
+                    <td>
+                        {{ currency(credit.value) }}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+        </table> 
+        <table class="w-50 table table-bordered">
+            <tbody>
+            <tr>
+                <td class="h6"><strong>Gross Pay</strong></td>
+                <td>{{ currency(gross_pay) }}</td>
+            </tr>
+            <tr>
+                <td class="h6"><strong>Reimbursements</strong></td>
+                <td>{{ currency(reimbursements_total) }}</td>
+            </tr>
+            <tr>
+                <td class="h6"><strong>Net Pay</strong></td>
+                <td>{{ currency(net_pay) }}</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

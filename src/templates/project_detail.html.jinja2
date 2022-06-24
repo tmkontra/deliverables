@@ -69,9 +69,9 @@
                     <strong>{{ invoice.name }}</strong>
                 </td>
                 <td>
-                    {# <form action="{{ url_for('project_delete', id=project.id) }}" method="POST">
-                        <button class="button danger" type="submit">Delete</button>
-                    </form> #}
+                    <a href="{{ url_for('render_invoice', project_id=project.id, invoice_id=invoice.id) }}">
+                        <button class="button secondary" type="button">Render</button>
+                    </a>
                 </td>
             </tr>
             <tr>
