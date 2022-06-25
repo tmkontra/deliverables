@@ -27,7 +27,15 @@ class BaseEntity:
 Base = declarative_base(cls=BaseEntity)
 
 
-class Deliverable(Base):
+class BaseValueModel:
+    _value: Decimal
+
+    @property
+    def value(self):
+        return Decimal(self._value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+class Deliverable(Base, BaseValueModel):
     __tablename__ = "deliverable"
 
     project_id = Column(Integer, ForeignKey("project.id"), nullable=False)
@@ -38,12 +46,9 @@ class Deliverable(Base):
 
     project = relationship("Project")
 
-class BaseValueModel:
-    _value: Decimal
-
     @property
-    def value(self):
-        return Decimal(self._value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    def _value(self):
+        return self.estimate
 
 class InvoiceLineItem(BaseValueModel, Base):
     __tablename__ = "invoice_line_item"
@@ -102,6 +107,13 @@ class Invoice(Base):
     project = relationship("Project")
 
     @property
+    def balance_due(self):
+        values = (
+            i.value for i in itertools.chain(self.line_items, self.credits, self.reimbursements)
+        )
+        return sum(values)
+
+    @property
     def gross_pay(self):
         values = (
             i.value for i in itertools.chain(self.line_items, self.credits, self.reimbursements)
@@ -117,11 +129,15 @@ class Invoice(Base):
         
     @property
     def net_pay(self):
-        values = (
-            i.value for i in itertools.chain(self.line_items, self.credits, self.reimbursements)
-        )
-        return sum(values)
+        return self.balance_due - self.reimbursements_total
         
+
+class BillTo(Base):
+    __tablename__ = "bill_to"
+
+    company_name = Column(String, nullable=False)
+    contact_name = Column(String, nullable=False)
+    contact_email = Column(String, nullable=False)
 
 
 class Project(Base):
@@ -129,8 +145,11 @@ class Project(Base):
 
     name = Column(String, unique=True, index=True)
     
-    deliverables = relationship("Deliverable", back_populates="project")
-    invoices = relationship("Invoice", back_populates="project")
+    deliverables = relationship("Deliverable", back_populates="project", order_by="desc(Deliverable.created)")
+    invoices = relationship("Invoice", back_populates="project", order_by="desc(Invoice.id)")
+    bill_to_id = Column(Integer, ForeignKey("bill_to.id"), nullable=True)
+
+    bill_to = relationship("BillTo")
 
     def get_deliverable(self, deliverable_id):
         return next((d for d in self.deliverables if str(d.id) == deliverable_id), None)

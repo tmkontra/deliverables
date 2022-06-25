@@ -1,71 +1,108 @@
 {% extends "_base.html.jinja2" %}
 {% block body %}
-    <div>
-        <h1>INVOICE</h2>
-        <p>{{ date }}
-    </div>
-    <div class="d-flex flex-column align-items-center">
-        <table class="w-50 table table-bordered">
-        <tbody>
-            <tr>
-                <td class="h6"><strong>Deliverables</strong></td>
-                <td class="h6"><strong>Amount</strong></td>
-            </tr>
-            {% for line_item in deliverables %}
-                <tr>
-                    <td>
-                        {{ line_item.deliverable.name }}
-                    </td>
-                    <td>
-                        {{ currency(line_item.value) }}
-                    </td>
-                </tr>
-            {% endfor %}
-            <tr>
-                <td class="h6"><strong>Reimbursements</strong></td>
-                <td></td>
-            </tr>
-            {% for reimbursement in reimbursements %}
-                <tr>
-                    <td>
-                        {{ reimbursement.reason }}
-                    </td>
-                    <td>
-                        {{ currency(reimbursement.value) }}
-                    </td>
-                </tr>
-            {% endfor %}
-            <tr>
-                <td class="h6"><strong>Credits</strong></td>
-                <td></td>
-            </tr>
-            {% for credit in credits %}
-                <tr>
-                    <td>
-                        {{ credit.reason }}
-                    </td>
-                    <td>
-                        {{ currency(credit.value) }}
-                    </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-        </table> 
-        <table class="w-50 table table-bordered">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        .serif {
+            font-family: Merriweather;
+            font-weight: 700;
+        }
+    </style>
+    <div class="container" style="font-family: Roboto">
+        <div class="d-flex flex-column align-items-end">
+            <h4 class="serif">INVOICE</h4>
+            <h4 class="mb-0 serif">Tyler M Kontra</h4>
+            <p class="mb-0">***REMOVED*** ***REMOVED***</p>
+            <p class="mb-0">***REMOVED***, CA ***REMOVED***</p>
+        </div>
+        <div class="d-flex flex-row justify-content-between mx-auto mt-5" style="width: 90%">
+            <div class="" id="bill-to">
+                <p class="mb-2"><small><strong>BILL TO:</strong></small></p>
+                <h4 class="mb-0 serif">{{ bill_to.company_name }}</h4>
+                <p class="mb-0">{{ bill_to.contact_name }}</p>
+                <a href="mailto:{{ bill_to.contact_email }}">
+                <p class="mb-0">{{ bill_to.contact_email }}</p>
+                </a>
+            </div>
+            <div class="" id="bill-to">
+                <p class="mb-0 text-end"><strong>Invoice Number</strong></p>
+                <p class="mb-0 text-end">{{ invoice_number }}</p>
+                <p class="mb-0 text-end"><strong>Invoice Date</strong></p>
+                <p class="mb-0 text-end">{{ date }}</p>
+            </div>
+        </div>
+        <div class="d-flex flex-column align-items-center mt-4">
+            <table class="w-75 table table-bordered">
             <tbody>
-            <tr>
-                <td class="h6"><strong>Gross Pay</strong></td>
-                <td>{{ currency(gross_pay) }}</td>
-            </tr>
-            <tr>
-                <td class="h6"><strong>Reimbursements</strong></td>
-                <td>{{ currency(reimbursements_total) }}</td>
-            </tr>
-            <tr>
-                <td class="h6"><strong>Net Pay</strong></td>
-                <td>{{ currency(net_pay) }}</td>
-            </tr>
+                <tr class="" style="background-color: #E1C7C2">
+                    <th class="h6 w-75 serif"><strong>Deliverables</strong></td>
+                    <th class="h6 w-25 serif"><strong>Amount</strong></td>
+                </tr>
+                {% for line_item in deliverables %}
+                    <tr>
+                        <td>
+                            {{ line_item.deliverable.name }}
+                        </td>
+                        <td class="align-middle">
+                            {{ currency(line_item.value) }}
+                        </td>
+                    </tr>
+                {% endfor %}
+                <tr>
+                    <td class="h6 serif"><strong>Reimbursements</strong></td>
+                    <td></td>
+                </tr>
+                {% for reimbursement in reimbursements %}
+                    <tr>
+                        <td>
+                            {{ reimbursement.reason }}
+                        </td>
+                        <td class="align-middle">
+                            {{ currency(reimbursement.value) }}
+                        </td>
+                    </tr>
+                {% endfor %}
+                <tr>
+                    <td class="h6 serif"><strong>Credits</strong></td>
+                    <td></td>
+                </tr>
+                {% for credit in credits %}
+                    <tr>
+                        <td>
+                            {{ credit.reason }}
+                        </td>
+                        <td class="align-middle">
+                            {{ currency(credit.value) }}
+                        </td>
+                    </tr>
+                {% endfor %}
             </tbody>
-        </table>
+            </table> 
+            <table class="w-75 table table-borderless serif" style="background-color: #EFF7F8">
+                <thead>
+                    <tr>
+                    <th class="w-75">
+                    </th>
+                    <th class="w-25">
+                    </th>
+                    </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td class="h4 text-end"><strong>Balance Due</strong></td>
+                    <td class="h5">{{ currency(balance_due) }}</td>
+                </tr>
+                <tr>
+                    <td class="h4 text-end"><strong>Reimbursements</strong></td>
+                    <td class="h5">{{ currency(reimbursements_total) }}</td>
+                </tr>
+                <tr>
+                    <td class="h4 text-end"><strong>Net Pay</strong></td>
+                    <td class="h5">{{ currency(net_pay) }}</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 {% endblock %}

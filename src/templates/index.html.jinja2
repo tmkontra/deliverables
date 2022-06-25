@@ -2,24 +2,24 @@
 {% block body %}
     <div>
         <h2>Projects</h2>
-        <a href="{{ url_for('new_project') }}">
-            <button class="button primary">Add Project</button>
-        </a>
     </div>
-    <div>
-        <table>
+    <div class="w-50">
+        <table class='table table-borderless'>
         {% for project in projects %}
             <tr>
                 <td>
-                    <a href="{{ url_for('project_detail', id=project.id) }}">{{ project.name }}</a>
+                    <a class="" href="{{ url_for('project_detail', id=project.id) }}">{{ project.name }}</a>
                 </td>
                 <td>
                     <form action="{{ url_for('project_delete', id=project.id) }}" method="POST">
-                        <button class="button danger" type="submit">Delete</button>
+                        <button class="btn btn-danger" type="submit">Delete</button>
                     </form>
                 </td>
             </tr>
         {% endfor %}
         </table>
+         <a href="{{ url_for('new_project') }}">
+            <button class="btn btn-primary">Add Project</button>
+        </a>
     </div>
 {% endblock %}
