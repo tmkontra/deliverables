@@ -376,3 +376,28 @@ def render_invoice(request: Request, project_id: str, invoice_id: str, render: R
             "net_pay": invoice.net_pay,
         }
         return render("invoice.html.jinja2", context=context)
+
+
+@server.post("/project/{project_id}/invoice/{invoice_id}/sent", name="invoice_sent")
+def invoice_sent(request: Request, project_id: str, invoice_id: str, sent: Optional[date] = Form(None)):
+    with get_db() as db:
+        project: model.Project = get_project(project_id, db)
+        if not project:
+            raise ValueError
+        invoice: model.Invoice = get_invoice(invoice_id, db)
+        invoice.sent = sent
+        db.commit()
+        return RedirectResponse(request.url_for("project_detail", id=project.id), status_code=HTTPStatus.SEE_OTHER)
+
+
+@server.post("/project/{project_id}/invoice/{invoice_id}/paid", name="invoice_paid")
+def invoice_paid(request: Request, project_id: str, invoice_id: str, paid: Optional[date] = Form(None)):
+    with get_db() as db:
+        project: model.Project = get_project(project_id, db)
+        if not project:
+            raise ValueError
+        invoice: model.Invoice = get_invoice(invoice_id, db)
+        print("paid", paid)
+        invoice.paid = paid
+        db.commit()
+        return RedirectResponse(request.url_for("project_detail", id=project.id), status_code=HTTPStatus.SEE_OTHER)

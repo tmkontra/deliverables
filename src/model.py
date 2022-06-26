@@ -45,10 +45,21 @@ class Deliverable(Base, BaseValueModel):
     due_date = Column(DATE, nullable=True)
 
     project = relationship("Project")
+    line_item = relationship("InvoiceLineItem", uselist=False)
 
     @property
     def _value(self):
         return self.estimate
+
+    @property
+    def invoiced(self):
+        return self.line_item is not None
+
+    @property
+    def paid(self):
+        if self.line_item is not None:
+            return self.line_item.invoice.paid is not None
+
 
 class InvoiceLineItem(BaseValueModel, Base):
     __tablename__ = "invoice_line_item"
@@ -59,7 +70,7 @@ class InvoiceLineItem(BaseValueModel, Base):
     amount = Column(DECIMAL, nullable=False)
 
     invoice = relationship("Invoice")
-    deliverable = relationship("Deliverable")
+    deliverable = relationship("Deliverable", back_populates="line_item")
 
     @property
     def _value(self):
@@ -103,6 +114,9 @@ class Invoice(Base):
     line_items = relationship("InvoiceLineItem", back_populates="invoice")
     credits = relationship("InvoiceCredit", back_populates="invoice")
     reimbursements = relationship("InvoiceReimbursement", back_populates="invoice")
+
+    sent = Column(DATE, nullable=True)
+    paid = Column(DATE, nullable=True)
     
     project = relationship("Project")
 

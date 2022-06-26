@@ -3,7 +3,7 @@
     <div>
         <h2>Project: {{ project.name }}</h2>
     </div>
-    <div class="w-25 border-bottom py-2">
+    <div class="w-25 py-2">
         <h5>Bill To</h5>
         <div class="row">
             <form action="{{ url_for('update_contact', project_id=project.id) }}" method="POST">
@@ -22,9 +22,10 @@
             </form>
         </div>
     </div>
-    <div class="border-bottom py-2">
+    <hr/>
+    <div class="py-2">
         <h3>Deliverables</h3>
-        <table>
+        <table class='table table-borderless'>
             <thead>
                 <th>Name</th>
                 <th>Estimate (USD)</th>
@@ -45,10 +46,10 @@
                     {{ deliverable.due_date or "" }}
                 </td>
                 <td>
-                    {{ deliverable.invoiced }}
+                    {{  ("<span>&#10003;</span>" if deliverable.invoiced else "x")|safe }}
                 </td>
                 <td>
-                    {{ deliverable.paid }}
+                    {{ ("<span>&#10003;</span>" if deliverable.paid else "")|safe }}
                 </td>
                 <td>
                     <form action="{{ url_for('delete_deliverable', project_id=project.id, deliverable_id=deliverable.id) }}" method="POST">
@@ -79,7 +80,8 @@
             </tr>
         </table>
     </div>
-    <div class="border-bottom py-2">
+    <hr/>
+    <div class="py-2">
         <h3>Invoices</h3>
         <table class="table table-borderless">
         {% for invoice in project.invoices %}
@@ -91,6 +93,22 @@
                     <a href="{{ url_for('render_invoice', project_id=project.id, invoice_id=invoice.id) }}">
                         <button class="btn btn-secondary" type="button">Render</button>
                     </a>
+                </td>
+            </tr>
+            <tr>
+                <td class="">
+                    <form action="{{ url_for('invoice_sent', project_id=project.id, invoice_id=invoice.id) }}" method="POST">
+                        <label class="label" for="sent">Sent On</label>
+                        <input class="form-control" type="date" name="sent" value="{{ invoice.sent }}"/>
+                        <button class="btn btn-secondary" type="submit">Update</button>
+                    </form>
+                </td>
+                <td class="">
+                    <form action="{{ url_for('invoice_paid', project_id=project.id, invoice_id=invoice.id) }}" method="POST">
+                        <label class="label" for="sent">Paid On</label>
+                        <input class="form-control" type="date" name="paid" value="{{ invoice.paid }}"/>
+                        <button class="btn btn-secondary" type="submit">Update</button>
+                    </form>
                 </td>
             </tr>
             <tr>
@@ -184,4 +202,5 @@
             </form>
         </div>
     </div>
+    <hr/>
 {% endblock %}
