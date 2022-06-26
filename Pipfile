@@ -5,14 +5,12 @@ name = "pypi"
 
 [packages]
 fastapi = "*"
-tinydb = "*"
 jinja2 = "*"
 uvicorn = "*"
 wtforms = "*"
 sqlmodel = "*"
 sqlalchemy = "*"
 python-multipart = "*"
-tinydb-serialization = "*"
 alembic = "*"
 fastapi-jinja-utils = "*"
 
