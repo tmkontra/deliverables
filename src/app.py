@@ -23,6 +23,7 @@ from tinydb_serialization import SerializationMiddleware, Serializer
 from tinydb_serialization.serializers import DateTimeSerializer
 from . import model
 from sqlalchemy.orm import joinedload
+from fastapi_jinja_utils import Renderable, Jinja2TemplatesDependency
 
 ROOT_DIR = Path(__file__).parent
 
@@ -30,7 +31,6 @@ server = FastAPI()
 
 server.mount("/static", StaticFiles(directory=ROOT_DIR / "static"), name="static")
 
-Render = Callable[[str, dict], Response]
 
 
 def render_currency(input):
@@ -39,27 +39,8 @@ def render_currency(input):
     sign = "-" if input < 0 else ""
     return f"{sign}${val:,.2f}"
 
-
-class RenderTemplate:
-    def __init__(self, **globals):
-        self._templates = Jinja2Templates(directory=ROOT_DIR / "templates")
-        self._set_globals(self._templates, globals)
-        self._templates.env.globals["currency"] = render_currency
-
-    @staticmethod
-    def _set_globals(template_cls, globals: dict):
-        for key, value in globals.items():
-            template_cls.env.globals[key] = value
-
-    def _render(self, request, name, context):
-        context.update({"request": request})
-        return self._templates.TemplateResponse(name, context)
-
-    def __call__(self, request: Request) -> Render:
-        return partial(self._render, request)
-
-
-Templates = RenderTemplate()
+templates_dir = ROOT_DIR / "templates"
+Templates = Jinja2TemplatesDependency(template_dir=templates_dir)
 
 EntityId = str
 
@@ -140,7 +121,7 @@ def get_project(id, db):
 
 
 @server.get("/projects", name="new_project")
-def new_project(render: Render = Depends(Templates)):
+def new_project(render: Renderable = Depends(Templates)):
     context = {}
     return render("new_project.html.jinja2", context=context)
 
@@ -155,7 +136,7 @@ def create_project(request: Request, name: str = Form()):
 
 
 @server.get("/projects/{id}", name="project_detail")
-def project_detail(request: Request, id: str, render: Render = Depends(Templates)):
+def project_detail(request: Request, id: str, render: Renderable = Depends(Templates)):
     print("GET project", id)
     with get_db() as db:
         project: model.Project = get_project(id, db)
@@ -331,7 +312,7 @@ def remove_reimbursement(
 
 
 @server.get("/", name="index")
-def index(request: Request, render: Render = Depends(Templates)):
+def index(request: Request, render: Renderable = Depends(Templates)):
     with get_db() as db:
         projects = db.query(model.Project).all()
         print(projects)
@@ -358,7 +339,7 @@ def update_contact(project_id: str, request: Request, company_name: str = Form()
 
 
 @server.get("/project/{project_id}/invoice/{invoice_id}/render", name="render_invoice")
-def render_invoice(request: Request, project_id: str, invoice_id: str, render: Render = Depends(Templates)):
+def render_invoice(request: Request, project_id: str, invoice_id: str, render: Renderable = Depends(Templates)):
      with get_db() as db:
         project: model.Project = get_project(project_id, db)
         if not project:
