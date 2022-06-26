@@ -24,6 +24,7 @@ from tinydb_serialization.serializers import DateTimeSerializer
 from . import model
 from sqlalchemy.orm import joinedload
 from fastapi_jinja_utils import Renderable, Jinja2TemplatesDependency
+from .utils import render_currency
 
 ROOT_DIR = Path(__file__).parent
 
@@ -32,80 +33,8 @@ server = FastAPI()
 server.mount("/static", StaticFiles(directory=ROOT_DIR / "static"), name="static")
 
 
-
-def render_currency(input):
-    """$1,352.02 or -$94.59"""
-    val = abs(input)
-    sign = "-" if input < 0 else ""
-    return f"{sign}${val:,.2f}"
-
 templates_dir = ROOT_DIR / "templates"
 Templates = Jinja2TemplatesDependency(template_dir=templates_dir)
-
-EntityId = str
-
-
-def entity_id() -> EntityId:
-    return str(uuid.uuid4())
-
-
-class Entity(BaseModel):
-    id: EntityId = Field(default_factory=entity_id)
-
-
-class Deliverable(Entity):
-    project_id: EntityId
-    name: str
-    estimate: Decimal
-    created: datetime
-    due_date: Optional[date] = Field(default=None)
-
-
-class InvoiceLineItem(Entity):
-    deliverable_id: EntityId
-    amount: Decimal
-
-
-class InvoiceCredit(Entity):
-    reason: str
-    amount: Decimal
-    
-
-class InvoiceReimbursement(Entity):
-    reason: str
-    amount: Decimal
-
-
-class Invoice(BaseModel):
-    line_items: List[InvoiceLineItem]
-    credits: List[InvoiceCredit]
-    reimbursements: List[InvoiceReimbursement]
-
-
-class Project(Entity):
-    name: str
-    deliverables: List[Deliverable] = Field(default_factory=list)
-    invoices: List[Invoice] = Field(default_factory=list)
-
-    def get_deliverable(self, id: EntityId):
-        for deliverable in self.deliverables:
-            if deliverable.id == id:
-                return deliverable
-
-
-serialization = SerializationMiddleware(JSONStorage)
-serialization.register_serializer(DateTimeSerializer(), 'TinyDate')
-
-class DecimalSerializer(Serializer):
-    OBJ_CLASS = Decimal  # The class this serializer handles
-
-    def encode(self, obj: Decimal):
-        return str(obj)
-
-    def decode(self, s):
-        return Decimal(s)
-
-serialization.register_serializer(DecimalSerializer(), 'TinyDecimal')
 
 
 @contextmanager
