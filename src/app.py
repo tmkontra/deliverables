@@ -34,7 +34,10 @@ server.mount("/static", StaticFiles(directory=ROOT_DIR / "static"), name="static
 
 
 templates_dir = ROOT_DIR / "templates"
-Templates = Jinja2TemplatesDependency(template_dir=templates_dir)
+jinja_globals = {
+    "currency": render_currency
+}
+Templates = Jinja2TemplatesDependency(template_dir=templates_dir, env_globals=jinja_globals)
 
 
 @contextmanager
