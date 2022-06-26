@@ -3,3 +3,7 @@
 *.tinydb
 *.db
 *.env
+
+.deliverables.json
+.git.bfg-report/
+secrets.txt

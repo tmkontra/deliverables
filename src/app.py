@@ -6,6 +6,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from functools import partial
 from http import HTTPStatus
+import json
 from lib2to3.pytree import Base
 from operator import inv
 from pathlib import Path
@@ -32,10 +33,14 @@ server = FastAPI()
 
 server.mount("/static", StaticFiles(directory=ROOT_DIR / "static"), name="static")
 
+# invoice config data
+with open(ROOT_DIR.parent / ".deliverables.json", "r") as f:
+    config_constants = json.load(f)
 
 templates_dir = ROOT_DIR / "templates"
 jinja_globals = {
-    "currency": render_currency
+    "currency": render_currency,
+    **config_constants
 }
 Templates = Jinja2TemplatesDependency(template_dir=templates_dir, env_globals=jinja_globals)
 
