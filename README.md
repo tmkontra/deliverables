@@ -27,3 +27,13 @@ Project Invoices List
 Rendered Invoice (save to PDF via browser print dialog)
 ![rendered invoice](./docs/images/invoice-render.png)
 
+
+### TODO
+
+- Support archiving invoices, deliverables
+- Switch to soft-deletes (all deletes are current "hard" SQL `DELETE`)
+- Deploy a private instance so I can log in from anywhere
+- Deploy a public demo instance
+  - I have this silly idea to generate a session id in the browser cookie, and use that as a "tenant ID"
+  - This way, demo users can only see the projects they've added
+  - I'd really like to use a "sqlite-db-per-user" and just map the session cookie to a db file, but we will see if SQLAlchemy can play along.
