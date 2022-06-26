@@ -1,31 +1,19 @@
-from ast import Del
-from calendar import c
 from contextlib import contextmanager
-from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
-from functools import partial
 from http import HTTPStatus
 import json
-from lib2to3.pytree import Base
-from operator import inv
 from pathlib import Path
-import re
-from typing import Callable, List, Optional
-import uuid
-from zoneinfo import available_timezones
-from tinydb import JSONStorage, TinyDB, Query
+from typing import Optional
 from fastapi import Depends, FastAPI, Form, Request, Response
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
-from tinydb_serialization import SerializationMiddleware, Serializer
-from tinydb_serialization.serializers import DateTimeSerializer
-from . import model
 from sqlalchemy.orm import joinedload
 from fastapi_jinja_utils import Renderable, Jinja2TemplatesDependency
+
+from . import model
 from .utils import render_currency
+
 
 ROOT_DIR = Path(__file__).parent
 
@@ -52,6 +40,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
 
 def get_project(id, db):
     return db.query(model.Project).filter_by(id=id).options(joinedload(model.Project.deliverables), joinedload(model.Project.invoices)).first()
@@ -244,7 +233,6 @@ def remove_reimbursement(
 def index(request: Request, render: Renderable = Depends(Templates)):
     with get_db() as db:
         projects = db.query(model.Project).all()
-        print(projects)
         context = {"request": request, "projects": projects}
         return render("index.html.jinja2", context=context)
 
@@ -307,7 +295,6 @@ def invoice_paid(request: Request, project_id: str, invoice_id: str, paid: Optio
         if not project:
             raise ValueError
         invoice: model.Invoice = get_invoice(invoice_id, db)
-        print("paid", paid)
         invoice.paid = paid
         db.commit()
         return RedirectResponse(request.url_for("project_detail", id=project.id), status_code=HTTPStatus.SEE_OTHER)

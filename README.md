@@ -31,7 +31,7 @@ Rendered Invoice (save to PDF via browser print dialog)
 ### TODO
 
 - Support archiving invoices, deliverables
-- Switch to soft-deletes (all deletes are current "hard" SQL `DELETE`)
+- Switch to soft-deletes (currently, all deletes are "hard" SQL `DELETE`)
 - Deploy a private instance so I can log in from anywhere
 - Deploy a public demo instance
   - I have this silly idea to generate a session id in the browser cookie, and use that as a "tenant ID"
