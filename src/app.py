@@ -49,12 +49,6 @@ def get_project(id, db):
     return db.query(model.Project).filter_by(id=id).options(joinedload(model.Project.deliverables), joinedload(model.Project.invoices)).first()
 
 
-@server.get("/projects", name="new_project")
-def new_project(render: Renderable = Depends(Templates)):
-    context = {}
-    return render("new_project.html.jinja2", context=context)
-
-
 @server.post("/projects", name="create_project")
 def create_project(request: Request, name: str = Form()):
     project = model.Project(name=name)
@@ -66,7 +60,6 @@ def create_project(request: Request, name: str = Form()):
 
 @server.get("/projects/{id}", name="project_detail")
 def project_detail(request: Request, id: str, render: Renderable = Depends(Templates)):
-    print("GET project", id)
     with get_db() as db:
         project: model.Project = get_project(id, db)
         available_deliverables = db.query(model.Deliverable).outerjoin(
@@ -107,7 +100,6 @@ def create_deliverable(
         return RedirectResponse(request.url_for("project_detail", id=project.id), status_code=HTTPStatus.SEE_OTHER)
 
 
-
 @server.post("/project/{project_id}/deliverable/{deliverable_id}/delete", name="delete_deliverable")
 def delete_deliverable(
     project_id: str, deliverable_id: str, request: Request, 
@@ -129,7 +121,7 @@ def create_invoice(
     project_id: str, request: Request, name: str = Form()
     ):
     with get_db() as db:
-        project: Project = get_project(project_id, db)
+        project: model.Project = get_project(project_id, db)
         if not project:
             raise ValueError
         invoice = model.Invoice(project=project, name=name)
@@ -143,7 +135,7 @@ def invoice_detail(
     project_id: str, invoice_id: str, request: Request
     ):
     with get_db() as db:
-        project: Project = get_project(project_id, db)
+        project: model.Project = get_project(project_id, db)
         if not project:
             raise ValueError
         invoice = get_invoice(invoice_id, db)
@@ -157,7 +149,7 @@ def add_line_item(
     project_id: str, invoice_id: str, request: Request, deliverable_id: str = Form()
     ):
     with get_db() as db:
-        project: Project = get_project(project_id, db)
+        project: model.Project = get_project(project_id, db)
         if not project:
             raise ValueError
         invoice: model.Invoice = get_invoice(invoice_id, db)
@@ -171,7 +163,7 @@ def remove_line_item(
     project_id: str, invoice_id: str, request: Request, line_item_id: str,
     ):
     with get_db() as db:
-        project: Project = get_project(project_id, db)
+        project: model.Project = get_project(project_id, db)
         if not project:
             raise ValueError
         invoice: model.Invoice = get_invoice(invoice_id, db)
@@ -186,7 +178,7 @@ def add_credit(
     project_id: str, invoice_id: str, request: Request, reason: str = Form(), amount: Decimal = Form()
     ):
     with get_db() as db:
-        project: Project = get_project(project_id, db)
+        project: model.Project = get_project(project_id, db)
         if not project:
             raise ValueError
         invoice: model.Invoice = get_invoice(invoice_id, db)
@@ -200,7 +192,7 @@ def remove_credit(
     project_id: str, invoice_id: str, request: Request, credit_id: str,
     ):
     with get_db() as db:
-        project: Project = get_project(project_id, db)
+        project: model.Project = get_project(project_id, db)
         if not project:
             raise ValueError
         invoice: model.Invoice = get_invoice(invoice_id, db)
@@ -215,7 +207,7 @@ def add_reimbursement(
     project_id: str, invoice_id: str, request: Request, reason: str = Form(), amount: Decimal = Form()
     ):
     with get_db() as db:
-        project: Project = get_project(project_id, db)
+        project: model.Project = get_project(project_id, db)
         if not project:
             raise ValueError
         invoice: model.Invoice = get_invoice(invoice_id, db)
@@ -229,7 +221,7 @@ def remove_reimbursement(
     project_id: str, invoice_id: str, request: Request, reimbursement_id: str,
     ):
     with get_db() as db:
-        project: Project = get_project(project_id, db)
+        project: model.Project = get_project(project_id, db)
         if not project:
             raise ValueError
         invoice: model.Invoice = get_invoice(invoice_id, db)
