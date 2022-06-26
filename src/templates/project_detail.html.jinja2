@@ -52,9 +52,11 @@
                     {{ ("<span>&#10003;</span>" if deliverable.paid else "")|safe }}
                 </td>
                 <td>
+                    {% if not deliverable.invoiced %}
                     <form action="{{ url_for('delete_deliverable', project_id=project.id, deliverable_id=deliverable.id) }}" method="POST">
                         <button type="submit" class="btn btn-danger">Delete</button>
                     </form>
+                    {% endif %}
                 </td>
             </tr>
         {% endfor %}
