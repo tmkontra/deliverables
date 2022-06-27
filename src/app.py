@@ -3,6 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from http import HTTPStatus
 import json
+import os
 from pathlib import Path
 from typing import Optional
 from fastapi import Depends, FastAPI, Form, Request, Response
@@ -11,7 +12,12 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import joinedload
 from fastapi_jinja_utils import Renderable, Jinja2TemplatesDependency
 
+from .exceptions import Unauthorized
+
+from .settings import Settings
+
 from . import model
+from .auth import NoopAuth, PrivateInstanceAuth
 from .utils import render_currency
 
 
@@ -22,8 +28,15 @@ server = FastAPI()
 server.mount("/static", StaticFiles(directory=ROOT_DIR / "static"), name="static")
 
 # invoice config data
-with open(ROOT_DIR.parent / ".deliverables.json", "r") as f:
-    config_constants = json.load(f)
+try:
+    with open(ROOT_DIR.parent / ".deliverables.json", "r") as f:
+        config_constants = json.load(f)
+except FileNotFoundError:
+    config_constants = {
+        "my_name": os.getenv("CONFIG_MY_NAME", "<Name>"),
+        "my_address_1": os.getenv("CONFIG_ADDRESS_1", "<Address 1>"),
+        "my_address_2": os.getenv("CONFIG_MY_ADDRESS_2", "<Address 2>"),
+    }
 
 templates_dir = ROOT_DIR / "templates"
 jinja_globals = {
@@ -32,6 +45,24 @@ jinja_globals = {
 }
 Templates = Jinja2TemplatesDependency(template_dir=templates_dir, env_globals=jinja_globals)
 
+settings = Settings()
+if settings.DEPLOYMENT == "local":
+    print("local")
+    auth = NoopAuth()
+elif settings.DEPLOYMENT == "private":
+    print("private")
+    auth = PrivateInstanceAuth(settings.PASSWORD, settings.SECRET_KEY, "/login", server)
+else:
+    raise ValueError("auth")
+
+
+@server.middleware("http")
+async def authentication_middleware(request: Request, call_next):
+    try: 
+        auth.is_authenticated(request=request)
+        return await call_next(request)
+    except Unauthorized as e:
+        return e.response
 
 @contextmanager
 def get_db():

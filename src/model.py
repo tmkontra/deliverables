@@ -2,13 +2,13 @@ from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 import itertools
 from operator import neg
-from turtle import pos
-from unicodedata import decimal
-from sqlalchemy import DATE, DATETIME, DECIMAL, DateTime, MetaData, UniqueConstraint, create_engine
+from sqlalchemy import DATE, DATETIME, DECIMAL, create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relation
+from sqlalchemy.orm import sessionmaker
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./deliverables.db"
+from .settings import Settings
+
+SQLALCHEMY_DATABASE_URL = Settings().DATABASE_URL
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
