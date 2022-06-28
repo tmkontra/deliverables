@@ -13,6 +13,7 @@ sqlalchemy = "*"
 python-multipart = "*"
 alembic = "*"
 fastapi-jinja-utils = "*"
+fastapi-utils = "*"
 
 [dev-packages]
 

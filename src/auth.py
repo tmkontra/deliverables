@@ -3,6 +3,7 @@ from datetime import datetime
 import hashlib
 import hmac
 import json
+import secrets
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import RedirectResponse, HTMLResponse
@@ -15,12 +16,39 @@ class AuthInterface:
     def is_authenticated(self, request: Request):
         pass
 
+    def get_tenant_id(self, request: Request):
+        return None
+
+
 class NoopAuth(AuthInterface):
     def is_authenticated(self, request: Request):
         print("Noop auth")
         return True
 
-class PrivateInstanceAuth:
+
+class MultitenantAuth(AuthInterface):
+    def __init__(self) -> None:
+        self._cookie_name = "demo_auth"
+
+    def is_authenticated(self, request: Request):
+        cookie = request.cookies.get(self._cookie_name)
+        if not cookie:
+            session_id  = self._generate_session_id()
+            response = RedirectResponse(request.url, status_code=303)
+            response.set_cookie(self._cookie_name, session_id)
+            raise Unauthorized(response)
+        return True
+    
+    def get_tenant_id(self, request: Request):
+        tenant_id = request.cookies[self._cookie_name]
+        print("tenant ID!", tenant_id)
+        return tenant_id
+    
+    def _generate_session_id(self) -> str:
+        return secrets.token_hex(24)
+
+
+class PrivateInstanceAuth(AuthInterface):
     def __init__(self, password, secret_key, login_redirect: str, server: FastAPI):
         self._password = password
         self._cookie_name = "private_auth"

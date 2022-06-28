@@ -26,7 +26,8 @@ target_metadata = model.Base.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
-config.set_main_option('sqlalchemy.url', model.SQLALCHEMY_DATABASE_URL)
+from src import app
+config.set_main_option('sqlalchemy.url', model.StaticDatabaseProxy(settings=app.settings)._url)
 
 
 def run_migrations_offline() -> None:

@@ -1,22 +1,82 @@
+from curses import meta
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 import itertools
 from operator import neg
-from sqlalchemy import DATE, DATETIME, DECIMAL, create_engine
+from pathlib import Path
+from typing import Optional, Set
+from sqlalchemy import DATE, DATETIME, DECIMAL, MetaData, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 from .settings import Settings
 
-SQLALCHEMY_DATABASE_URL = Settings().DATABASE_URL
+metadata = MetaData()
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+class DatabaseProxy:
+    def get_session(self, tenant_id: Optional[str]):
+        raise NotImplementedError
+    
+    def recreate_database(self, tenant_id: Optional[str]):
+        raise NotImplementedError
 
 
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+class StaticDatabaseProxy(DatabaseProxy):
+    def __init__(self, settings: Settings):
+        self._url = SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
+        engine = create_engine(
+            SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+        )
+        self._engine = engine
+        self._session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+    def get_session(self, tenant_id: Optional[str] = None):
+        if tenant_id is not None:
+            # TODO: logger.warn
+            pass
+        return self._session_local()
+
+
+class MultitenantDatabaseProxy(DatabaseProxy):
+    def __init__(self, database_directory: Path) -> None:
+        if not isinstance(database_directory, Path):
+            raise ValueError(f"Multitenant database directory must be specified: {database_directory}")
+        database_directory.mkdir(exist_ok=True)
+        self._engine_cache = {}
+        self._session_local_cache = {}
+        self._database_directory = database_directory
+
+    def get_session(self, tenant_id: Optional[str]):
+        if tenant_id is None:
+            raise ValueError("tenant_id must not be None for MultitenantDatabaseProxy")
+        session_local = self._session_local_cache.get(tenant_id)
+        if not session_local:
+            engine = self._get_or_create_engine(tenant_id)
+            metadata.create_all(bind=engine)
+            session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+            self._session_local_cache[tenant_id] = session_local
+        return session_local()
+
+    def _get_or_create_engine(self, tenant_id: str):
+        url = self._url_for_tenant(tenant_id)
+        engine = self._engine_cache.setdefault(
+            tenant_id, 
+            create_engine(url, connect_args={"check_same_thread": False})
+        )
+        return engine
+
+    def _url_for_tenant(self, tenant_id: str):
+        db_path = self._database_directory / tenant_id
+        return f"sqlite:///{db_path}.db"
+
+    def recreate_database(self, tenant_id: Optional[str]):
+        print(f"Recreating database for tenant {tenant_id}")
+        engine = self._get_or_create_engine(tenant_id=tenant_id)
+        metadata.drop_all(bind=engine)
+        metadata.create_all(bind=engine)
+
+
+from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 
@@ -24,7 +84,7 @@ class BaseEntity:
     id = Column(Integer, primary_key=True, index=True)
 
 
-Base = declarative_base(cls=BaseEntity)
+Base = declarative_base(cls=BaseEntity, metadata=metadata)
 
 
 class BaseValueModel:
