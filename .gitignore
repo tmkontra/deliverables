@@ -9,3 +9,4 @@
 secrets.txt
 
 fly.toml
+fly.*.toml

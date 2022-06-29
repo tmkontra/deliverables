@@ -3,6 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from http import HTTPStatus
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Optional
@@ -22,6 +23,8 @@ from . import model
 from .auth import NoopAuth, PrivateInstanceAuth, MultitenantAuth
 from .utils import render_currency
 
+
+logger = logging.getLogger(__name__)
 
 settings = Settings()
 
@@ -90,6 +93,7 @@ def get_db(tenant_id: Optional[str]):
     try:
         yield db
     except sqlalchemy.exc.OperationalError as e:
+        logger.exception("Database OperationalError")
         db_proxy.recreate_database(tenant_id=tenant_id)
         raise RefreshDatabaseError()
     finally:

@@ -33,7 +33,6 @@ COPY migrations ./migrations
 COPY alembic.ini .
 
 
-
 # Run the application
 ENTRYPOINT ["uvicorn"]
 CMD ["src.app:server", "--host=0.0.0.0", "--port=8080", "--proxy-headers", "--forwarded-allow-ips=*"]
