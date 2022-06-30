@@ -1,28 +1,27 @@
+import json
+import logging
+import os
 from contextlib import contextmanager
 from datetime import date, datetime
 from decimal import Decimal
 from http import HTTPStatus
-import json
-import logging
-import os
+from io import UnsupportedOperation
 from pathlib import Path
 from typing import Optional
-from fastapi import Depends, FastAPI, Form, Request, Response
-from fastapi.responses import RedirectResponse
-from fastapi.staticfiles import StaticFiles
+
 import sqlalchemy
-from sqlalchemy.orm import joinedload
-from fastapi_jinja_utils import Renderable, Jinja2TemplatesDependency
+from fastapi import Depends, FastAPI, Form, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi_jinja_utils import Jinja2TemplatesDependency, Renderable
 from fastapi_utils.cbv import cbv
-
-from .exceptions import RefreshDatabaseError, Unauthorized
-
-from .settings import Settings
+from sqlalchemy.orm import joinedload
 
 from . import model
-from .auth import NoopAuth, PrivateInstanceAuth, MultitenantAuth
+from .auth import MultitenantAuth, NoopAuth, PrivateInstanceAuth
+from .exceptions import RefreshDatabaseError, Unauthorized
+from .settings import Settings
 from .utils import render_currency
-
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +59,7 @@ match settings.DEPLOYMENT:
         auth = PrivateInstanceAuth(settings.PASSWORD, settings.SECRET_KEY, "/login", server)
         db_proxy = model.StaticDatabaseProxy(settings=settings)
     case "demo":
-        auth = MultitenantAuth()
+        auth = MultitenantAuth(server)
         db_proxy = model.MultitenantDatabaseProxy(database_directory=settings.DATABASE_DIRECTORY)
     case other:
         raise RuntimeError(f"DEPLOYMENT variable invalid value: {other}")
@@ -85,6 +84,8 @@ async def retry_refreshed_database_middleware(request: Request, call_next):
         return await call_next(request)
     except RefreshDatabaseError:
         return RedirectResponse(request.url, status_code=303)
+    except model.DatabaseLimitExceededError:
+        return RedirectResponse("/db-limit-exceeded", status_code=303)
 
 
 @contextmanager
@@ -96,6 +97,9 @@ def get_db(tenant_id: Optional[str]):
         logger.exception("Database OperationalError")
         db_proxy.recreate_database(tenant_id=tenant_id)
         raise RefreshDatabaseError()
+    except model.DatabaseLimitExceededError as e:
+        logger.exception("Database at max size!")
+        raise
     finally:
         db.close()
 
@@ -306,7 +310,7 @@ class Views:
     @server.get("/", name="index")
     def index(self, request: Request, render: Renderable = Depends(Templates)):
         with get_db(self.tenant_id) as db:
-            projects = db.query(model.Project).all()
+            projects = db.query(model.Project).limit(100).all()
             context = {"request": request, "projects": projects}
             return render("index.html.jinja2", context=context)
 
@@ -371,3 +375,23 @@ class Views:
             invoice.paid = paid
             db.commit()
             return RedirectResponse(request.url_for("project_detail", id=project.id), status_code=HTTPStatus.SEE_OTHER)
+
+    @server.get("/db-limit-exceeded")
+    def db_limit_exceeded_confirmation(self):
+        html = """
+        <h1>It looks like you've added too much data to your database!</h1>
+        <p>To make sure "noisy neighbors" don't ruin the demo for everyone else, we limit the maximum demo database size</p>
+        <form action="/db-limit-exceeded" method="POST">
+            <label>To continue using the demo, you'll need to wipe your database and start fresh.</p>
+            <button type="submit">Confirm Database Wipe</button>
+        </form>
+        """
+        return HTMLResponse(html)
+    
+    @server.post("/db-limit-exceeded")
+    def wipe_database(self):
+        if not isinstance(db_proxy, model.MultitenantDatabaseProxy):
+            raise UnsupportedOperation()
+        else:
+            db_proxy.recreate_database(self.tenant_id)
+        return RedirectResponse("/", status_code=303)

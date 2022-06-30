@@ -8,3 +8,7 @@ class Unauthorized(Exception):
 
 class RefreshDatabaseError(Exception):
     pass
+
+
+class DatabaseLimitExceededError(Exception):
+    pass

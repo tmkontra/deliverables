@@ -1,13 +1,16 @@
-from curses import meta
+import itertools
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
-import itertools
 from operator import neg
 from pathlib import Path
-from typing import Optional, Set
+from typing import Optional
+
 from sqlalchemy import DATE, DATETIME, DECIMAL, MetaData, create_engine
+import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+
+from .exceptions import DatabaseLimitExceededError
 
 from .settings import Settings
 
@@ -37,20 +40,44 @@ class StaticDatabaseProxy(DatabaseProxy):
         return self._session_local()
 
 
+
+class MultitenantDatabaseStorageManager:
+    MAX_DATABASE_SIZE_MB = 10
+
+    def __init__(self, directory: Path) -> None:
+        if not isinstance(directory, Path):
+            raise ValueError(f"Multitenant database directory must be specified: {directory}")
+        directory.mkdir(exist_ok=True)
+        self._directory = directory
+        self._max_bytes = self.MAX_DATABASE_SIZE_MB * (1024 ** 2)
+
+    def _url_for_id(self, database_id: str):
+        db_path = self._filepath_for_database(database_id)
+        return f"sqlite:///{db_path}"
+    
+    def _filepath_for_database(self, database_id: str) -> Path:
+        return self._directory / (database_id + ".db")
+
+    def check_database_size(self, database_id: str) -> bool:
+        filepath = self._filepath_for_database(database_id)
+        db_size = filepath.stat().st_size
+        print("size", db_size, self._max_bytes)
+        return (not filepath.exists()) or db_size < self._max_bytes
+        
+
 class MultitenantDatabaseProxy(DatabaseProxy):
     def __init__(self, database_directory: Path) -> None:
-        if not isinstance(database_directory, Path):
-            raise ValueError(f"Multitenant database directory must be specified: {database_directory}")
-        database_directory.mkdir(exist_ok=True)
+        self._storage = MultitenantDatabaseStorageManager(database_directory)
         self._engine_cache = {}
         self._session_local_cache = {}
-        self._database_directory = database_directory
 
     def get_session(self, tenant_id: Optional[str]):
         if tenant_id is None:
             raise ValueError("tenant_id must not be None for MultitenantDatabaseProxy")
+        if not self._storage.check_database_size(tenant_id):
+            raise DatabaseLimitExceededError()
         session_local = self._session_local_cache.get(tenant_id)
-        if not session_local:
+        if session_local is None:
             engine = self._get_or_create_engine(tenant_id)
             metadata.create_all(bind=engine)
             session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -58,22 +85,21 @@ class MultitenantDatabaseProxy(DatabaseProxy):
         return session_local()
 
     def _get_or_create_engine(self, tenant_id: str):
-        url = self._url_for_tenant(tenant_id)
+        url = self._storage._url_for_id(tenant_id)
         engine = self._engine_cache.setdefault(
             tenant_id, 
             create_engine(url, connect_args={"check_same_thread": False})
         )
         return engine
 
-    def _url_for_tenant(self, tenant_id: str):
-        db_path = self._database_directory / tenant_id
-        return f"sqlite:///{db_path}.db"
-
     def recreate_database(self, tenant_id: Optional[str]):
         print(f"Recreating database for tenant {tenant_id}")
-        engine = self._get_or_create_engine(tenant_id=tenant_id)
+        engine: sqlalchemy.engine.Engine = self._get_or_create_engine(tenant_id=tenant_id)
         metadata.drop_all(bind=engine)
         metadata.create_all(bind=engine)
+        con = engine.connect()
+        con.execute("VACUUM")
+        con.close()
 
 
 from sqlalchemy import Column, ForeignKey, Integer, String

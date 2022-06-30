@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import secrets
+from typing import Optional
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import RedirectResponse, HTMLResponse
@@ -13,6 +14,19 @@ from .exceptions import Unauthorized
 
 
 class AuthInterface:
+    _cookie_name: Optional[str]
+
+    def __init__(self, server, *args, **kwargs):
+        self._register_logout_route(server)
+
+    def _register_logout_route(self, server: FastAPI):
+        def logout(request: Request):
+            response = RedirectResponse("/", status_code=303)
+            if self._cookie_name is not None:
+                response.delete_cookie(self._cookie_name)
+            return response
+        server.add_route("/logout", logout)
+
     def is_authenticated(self, request: Request):
         pass
 
@@ -27,8 +41,9 @@ class NoopAuth(AuthInterface):
 
 
 class MultitenantAuth(AuthInterface):
-    def __init__(self) -> None:
+    def __init__(self, server) -> None:
         self._cookie_name = "demo_auth"
+        super().__init__(server)
 
     def is_authenticated(self, request: Request):
         cookie = request.cookies.get(self._cookie_name)
@@ -41,7 +56,6 @@ class MultitenantAuth(AuthInterface):
     
     def get_tenant_id(self, request: Request):
         tenant_id = request.cookies[self._cookie_name]
-        print("tenant ID!", tenant_id)
         return tenant_id
     
     def _generate_session_id(self) -> str:
@@ -55,7 +69,7 @@ class PrivateInstanceAuth(AuthInterface):
         self._signer = Signer(secret_key=secret_key)
         self._login_redirect = login_redirect
         self._register_login_route(server=server)
-        self._register_logout_route(server=server)
+        super().__init__(server)
 
     def is_authenticated(self, request: Request):
         print("Checking private auth")
@@ -96,13 +110,6 @@ class PrivateInstanceAuth(AuthInterface):
                     response.set_cookie(self._cookie_name, cookie)
                     return response
         server.add_route(self._login_redirect, login, methods=["GET", "POST"])
-
-    def _register_logout_route(self, server: FastAPI):
-        def logout(request: Request):
-            response = RedirectResponse("/", status_code=303)
-            response.delete_cookie(self._cookie_name)
-            return response
-        server.add_route("/logout", logout)
 
 
 class Signer:
