@@ -53,7 +53,7 @@ Templates = Jinja2TemplatesDependency(template_dir=templates_dir, env_globals=ji
 
 match settings.DEPLOYMENT:
     case "local":
-        auth = NoopAuth()
+        auth = NoopAuth(server)
         db_proxy = model.StaticDatabaseProxy(settings=settings)    
     case "private":
         auth = PrivateInstanceAuth(settings.PASSWORD, settings.SECRET_KEY, "/login", server)

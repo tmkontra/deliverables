@@ -14,7 +14,7 @@ from .exceptions import Unauthorized
 
 
 class AuthInterface:
-    _cookie_name: Optional[str]
+    _cookie_name: Optional[str] = None
 
     def __init__(self, server, *args, **kwargs):
         self._register_logout_route(server)
@@ -35,6 +35,9 @@ class AuthInterface:
 
 
 class NoopAuth(AuthInterface):
+    def __init__(self, server):
+        super().__init__(server)
+
     def is_authenticated(self, request: Request):
         print("Noop auth")
         return True
